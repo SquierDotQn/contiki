@@ -32,11 +32,12 @@
 
 /**
  * \file
- *         Andorid sniffer example for the Tmote Sky platform. To be used 
- *         together with the Sniffer 15.4 Andorid app.
+ *         Sniffer example for the Tmote Sky platform.
  *
  * \author
- *         Daniele Alessandrelli - <d.alessandrelli@sssup.it>
+ *         Original code : Daniele Alessandrelli - <d.alessandrelli@sssup.it>
+ *         Changes       : Théo Plockyn - <theo.plockyn@etudiant.univ-lille1.fr>
+ *         Changes       : Rémy Debue - <remy.debue@etudiant.univ-lille1.fr>
  */
 
 
@@ -49,40 +50,6 @@
 #define DEBUG DEBUG_NONE
 #include "net/uip-debug.h"
 
-/*
- * We cannot receive the channel value 13 (0x0D) from the serial line correctly
- * unless we offset the channel number. That is because 0x0D is Carriage Return
- * and is omitted by Contiki
- */
-#define SERIAL_CHANNEL_OFFSET 0x20
-
-#define MAGIC_LEN 4
-/* 
- * The following defines identify the fields included in the USB packet sent 
- * to the Android device
- */
-#define FIELD_CRC        1
-#define FIELD_CRC_OK     2
-#define FIELD_RSSI       4
-#define FIELD_LQI        8
-#define FIELD_TIMESTAMP 16
-
-/* 
- * Packet type: sniffed packet
- * Format:  magic | type | len | pkt | crc_ok | rssi | lqi 
- */
-#define MY_TYPE  (char) (FIELD_CRC_OK | FIELD_RSSI | FIELD_LQI)
-/*
- * Packet type: start sniffing
- * Foramt: type | ch 
- */
-#define TYPE_START_SNIF 0xFA
-/* 
- * Packet type: stop sniffing
- * Format: type
- */
-#define TYPE_STOP_SNIF  0xFB
-
 #define set_channel cc2420_set_channel
 
 /*---------------------------------------------------------------------------*/
@@ -91,75 +58,47 @@ uint8_t sniffer_crc_ok;
 /* The variable where the radio driver stores the FCS of the sniffed packet */
 uint8_t sniffer_crc[2];
 
-/* 
- * The magic sequence for synchronizing the communication from the sniffer to 
- * the android device. The magic sequence is sent before sending the actual 
- * data to the android device.
- */
-/*                              0x53 0x4E 0x49 0x46                          */
-static const uint8_t magic[] = { 'S', 'N', 'I', 'F'};
-
 extern process_event_t serial_line_event_message;
 
 static uint8_t snif_enabled;
-static uint8_t channel;
 
 /*---------------------------------------------------------------------------*/
 void
 sniffer_input()
 {
   uint8_t *pkt; 
+  uint8_t *hdr;
   uint16_t pkt_len;
+  uint16_t hdr_len;
   uint8_t rssi;
   uint8_t lqi;
   uint16_t timestamp;
   uint16_t i;
 
+  hdr = packetbuf_hdrptr();
+  hdr_len = packetbuf_hdrlen();
   pkt = packetbuf_dataptr();
   pkt_len = packetbuf_datalen();
   rssi = packetbuf_attr(PACKETBUF_ATTR_RSSI);
   lqi = packetbuf_attr(PACKETBUF_ATTR_LINK_QUALITY);
   timestamp = packetbuf_attr(PACKETBUF_ATTR_TIMESTAMP);
-  /*
   printf("New packet\n");
-  printf("Pakcet len: %u\n", pkt_len);
-  printf("Packet:");
+  printf("Header len: %u\n", hdr_len);
+  printf("Header:\n");
+  for (i = 0; i < hdr_len; i++) {
+    if(i%20==0) {printf("\n");}
+    printf(" %2x", hdr[i]);
+  }
+  printf("Packet len: %u\n", pkt_len);
+  printf("Packet:\n");
   for (i = 0; i < pkt_len; i++) {
+    if(i%20==0) {printf("\n");}
     printf(" %2x", pkt[i]);
   }
   printf("\n");
-  printf("CRC: none\n");
-  printf("CRC OK: %d\n", !!sniffer_crc_ok);
   printf("RSSI: %u\n", 255 - rssi);
   printf("LQI: %u\n", lqi);
   printf("Timestamp: %u\n", timestamp);
-  */
-  /* magic | type | len | pkt | crc_ok | rssi | lqi */
-  for (i = 0; i < MAGIC_LEN; i++) {
-    putchar(magic[i]);
-  }
-  putchar(MY_TYPE);
-  putchar((uint8_t) pkt_len);
-  for (i = 0; i < pkt_len; i++) {
-    putchar(pkt[i]);
-  }
-  if (MY_TYPE & FIELD_CRC) {
-    putchar(sniffer_crc[0]);
-    putchar(sniffer_crc[1]);
-  }
-  if (MY_TYPE & FIELD_CRC_OK) {
-    putchar(sniffer_crc_ok);
-  }
-  if (MY_TYPE & FIELD_RSSI) {
-    putchar(rssi);
-  }
-  if (MY_TYPE & FIELD_LQI) {
-    putchar(lqi);
-  }
-  if (MY_TYPE & FIELD_TIMESTAMP) {
-    putchar((timestamp >> 8) & 0xFF);
-    putchar(timestamp & 0xFF);
-  }
 }
 
 
@@ -172,26 +111,12 @@ PROCESS_THREAD(sniffer_process, ev, data)
 
   PROCESS_BEGIN();
 
-  uint8_t *in;
-  
   PRINTF("Sniffer started\n");
-  NETSTACK_RADIO.off();
+  NETSTACK_RADIO.on();
+  snif_enabled = 1;
 
   while(1) {    
     PROCESS_WAIT_EVENT();
-    in = data;
-    if(ev == serial_line_event_message && data != NULL) {
-      if (in[0] == TYPE_START_SNIF) {
-        NETSTACK_RADIO.on();
-        channel = in[1] - SERIAL_CHANNEL_OFFSET;
-        set_channel(channel);
-        snif_enabled = 1;
-      }
-      if (in[0] == TYPE_STOP_SNIF) {
-        NETSTACK_RADIO.off();
-        snif_enabled = 0;
-      }
-    }
   } 
 
   PROCESS_EXIT();
