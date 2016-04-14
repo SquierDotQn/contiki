@@ -46,6 +46,7 @@
 #include "netstack.h"
 #include "net/packetbuf.h"
 #include "dev/cc2420.h"
+#include "lib/ringbuf.h"
 
 #define DEBUG DEBUG_NONE
 #include "net/uip-debug.h"
@@ -53,14 +54,11 @@
 #define set_channel cc2420_set_channel
 
 /*---------------------------------------------------------------------------*/
-/* The variable where the radio driver stores the result of the FCS check */
-uint8_t sniffer_crc_ok;
-/* The variable where the radio driver stores the FCS of the sniffed packet */
-uint8_t sniffer_crc[2];
 
-extern process_event_t serial_line_event_message;
-
-static uint8_t snif_enabled;
+// TEST BUFFER CYCLIQUE
+#define RING_SIZE 128
+struct ringbuf infos;
+uint8_t infos_array[64];
 
 /*---------------------------------------------------------------------------*/
 void
@@ -82,6 +80,13 @@ sniffer_input()
   rssi = packetbuf_attr(PACKETBUF_ATTR_RSSI);
   lqi = packetbuf_attr(PACKETBUF_ATTR_LINK_QUALITY);
   timestamp = packetbuf_attr(PACKETBUF_ATTR_TIMESTAMP);
+  
+  // TEST BUFFER CYCLIQUE
+  if(ringbuf_put(*infos, 0xFF)==0){
+        ringbuf_get(*infos);
+        ringbuf_put(*infos, 0xFF);
+  }
+  
   printf("New packet\n");
   printf("Header len: %u\n", hdr_len);
   printf("Header:\n");
@@ -110,10 +115,11 @@ PROCESS_THREAD(sniffer_process, ev, data)
 {
 
   PROCESS_BEGIN();
-
+  //TEST BUFFER CYCLIQUE
+  ringbuf_init(*infos, *infos_array, 128);
+  
   PRINTF("Sniffer started\n");
   NETSTACK_RADIO.on();
-  snif_enabled = 1;
 
   while(1) {    
     PROCESS_WAIT_EVENT();
