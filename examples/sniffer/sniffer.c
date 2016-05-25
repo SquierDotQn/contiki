@@ -46,7 +46,7 @@
 #include "netstack.h"
 #include "net/packetbuf.h"
 #include "dev/cc2420.h"
-#include "lib/ringbuf.h"
+//#include "lib/ringbuf.h"
 
 #define DEBUG DEBUG_NONE
 #include "net/uip-debug.h"
@@ -56,54 +56,55 @@
 /*---------------------------------------------------------------------------*/
 
 // TEST BUFFER CYCLIQUE
-#define RING_SIZE 128
+/*#define RING_SIZE 128
 struct ringbuf infos;
 uint8_t infos_array[64];
-
+*/
 /*---------------------------------------------------------------------------*/
 void
 sniffer_input()
 {
   uint8_t *pkt; 
-  uint8_t *hdr;
+  //uint8_t *hdr;
   uint16_t pkt_len;
-  uint16_t hdr_len;
+  /*uint16_t hdr_len;
   uint8_t rssi;
   uint8_t lqi;
-  uint16_t timestamp;
+  uint16_t timestamp;*/
   uint16_t i;
 
-  hdr = packetbuf_hdrptr();
-  hdr_len = packetbuf_hdrlen();
+/*  hdr = packetbuf_hdrptr(); // Peut pas marcher pour les paquets entrants
+  hdr_len = packetbuf_hdrlen();*/
   pkt = packetbuf_dataptr();
   pkt_len = packetbuf_datalen();
-  rssi = packetbuf_attr(PACKETBUF_ATTR_RSSI);
+  /*rssi = packetbuf_attr(PACKETBUF_ATTR_RSSI);
   lqi = packetbuf_attr(PACKETBUF_ATTR_LINK_QUALITY);
-  timestamp = packetbuf_attr(PACKETBUF_ATTR_TIMESTAMP);
+  timestamp = packetbuf_attr(PACKETBUF_ATTR_TIMESTAMP);*/
   
   // TEST BUFFER CYCLIQUE
-  if(ringbuf_put(*infos, 0xFF)==0){
+  /*if(ringbuf_put(*infos, 0xFF)==0){
         ringbuf_get(*infos);
         ringbuf_put(*infos, 0xFF);
-  }
+  }*/
   
-  printf("New packet\n");
+  //printf("New packet\n"); OSEF
+  /* Marche pas pour les paquets entrants !
   printf("Header len: %u\n", hdr_len);
   printf("Header:\n");
   for (i = 0; i < hdr_len; i++) {
     if(i%20==0) {printf("\n");}
     printf(" %2x", hdr[i]);
-  }
-  printf("Packet len: %u\n", pkt_len);
-  printf("Packet:\n");
+  }*/
+  /*printf("Packet len: %u\n", pkt_len);
+  printf("Packet:\n");*/
   for (i = 0; i < pkt_len; i++) {
-    if(i%20==0) {printf("\n");}
+    //if(i%20==0) {printf("\n");}
     printf(" %2x", pkt[i]);
   }
   printf("\n");
-  printf("RSSI: %u\n", 255 - rssi);
+  /*printf("RSSI: %u\n", 255 - rssi);
   printf("LQI: %u\n", lqi);
-  printf("Timestamp: %u\n", timestamp);
+  printf("Timestamp: %u\n", timestamp);*/
 }
 
 
@@ -116,7 +117,7 @@ PROCESS_THREAD(sniffer_process, ev, data)
 
   PROCESS_BEGIN();
   //TEST BUFFER CYCLIQUE
-  ringbuf_init(*infos, *infos_array, 128);
+  //ringbuf_init(*infos, *infos_array, 128);
   
   PRINTF("Sniffer started\n");
   NETSTACK_RADIO.on();
